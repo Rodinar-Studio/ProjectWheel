@@ -24,13 +24,18 @@ By mounting the phones to the floor or a driving rig and tilting them, you contr
 
 ## Screenshots
 
-| Section | Preview |
-|---------|---------|
-| WebUI Control Panel | ![WebUI Dashboard](screenshots/01-dashboard.png) |
-| Mobile Connection Screen | ![Mobile Connection](screenshots/05-connection.png) |
-| Mobile Pedal Selection | ![Mobile Pedal Selection](screenshots/02-pedal-select.png) |
-| Mobile Gas Active Screen | ![Mobile Gas](screenshots/03-pedal-gas.png) |
-| Mobile Brake Active Screen | ![Mobile Brake](screenshots/04-pedal-brake.png) |
+### 💻 WebUI Control Panel
+<p align="left">
+  <img src="screenshots/01-dashboard.png" width="700" alt="WebUI Control Panel">
+</p>
+
+### 📱 Mobile Client Flow
+<p align="left">
+  <img src="screenshots/05-connection.png" width="160" alt="Connection Settings">
+  <img src="screenshots/02-pedal-select.png" width="160" alt="Pedal Selection">
+  <img src="screenshots/03-pedal-gas.png" width="160" alt="Gas Active">
+  <img src="screenshots/04-pedal-brake.png" width="160" alt="Brake Active">
+</p>
 
 ## Technology Stack
 

@@ -24,13 +24,18 @@ Telefonları yere/sürüş standına sabitleyip eğerek **gaz** ve **fren** peda
 
 ## Ekran Görüntüleri
 
-| Bölüm | Önizleme |
-|-------|----------|
-| WebUI Kontrol Paneli | ![WebUI Dashboard](screenshots/01-dashboard.png) |
-| Mobil Bağlantı Ekranı | ![Mobil Bağlantı](screenshots/05-connection.png) |
-| Mobil Pedal Seçim Ekranı | ![Mobil Pedal Seçim](screenshots/02-pedal-select.png) |
-| Mobil Gaz Aktif Ekranı | ![Mobil Gaz](screenshots/03-pedal-gas.png) |
-| Mobil Fren Aktif Ekranı | ![Mobil Fren](screenshots/04-pedal-brake.png) |
+### 💻 WebUI Kontrol Paneli
+<p align="left">
+  <img src="screenshots/01-dashboard.png" width="700" alt="WebUI Kontrol Paneli">
+</p>
+
+### 📱 Mobil İstemci Akışı
+<p align="left">
+  <img src="screenshots/05-connection.png" width="160" alt="Bağlantı Ayarları">
+  <img src="screenshots/02-pedal-select.png" width="160" alt="Pedal Seçimi">
+  <img src="screenshots/03-pedal-gas.png" width="160" alt="Gaz Aktif">
+  <img src="screenshots/04-pedal-brake.png" width="160" alt="Fren Aktif">
+</p>
 
 ## Teknoloji Yığını
 
