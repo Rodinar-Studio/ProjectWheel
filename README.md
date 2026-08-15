@@ -17,6 +17,13 @@ Telefonları yere/sürüş standına sabitleyip eğerek **gaz** ve **fren** peda
 - **Direksiyon ölü bölgesi** ve yumuşak (smooth) ölçekleme.
 - **Canlı WebUI kontrol paneli** — pedal/direksiyon durumu, eksen değerleri, kalibrasyon.
 
+## Ekran Görüntüleri
+
+| Bölüm | Önizleme |
+|-------|----------|
+| WebUI Kontrol Paneli | ![WebUI Dashboard](screenshots/01-dashboard.png) |
+| Mobil Pedal İstemcisi | ![Pedal İstemcisi](screenshots/02-pedal-client.png) |
+
 ## Teknoloji Yığını
 
 | Katman | Teknoloji |
