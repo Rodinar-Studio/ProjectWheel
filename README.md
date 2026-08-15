@@ -26,7 +26,9 @@ Telefonları yere/sürüş standına sabitleyip eğerek **gaz** ve **fren** peda
 
 | Bölüm | Önizleme |
 |-------|----------|
-| WebUI Kontrol Paneli | ![WebUI Dashboard](screenshots/01-dashboard.png) |
+| WebUI Pedal Durumu | ![WebUI Dashboard](screenshots/01-dashboard.png) |
+| WebUI Direksiyon Durumu | ![WebUI Wheel](screenshots/04-wheel.png) |
+| WebUI Vites (Shifter) Ayarları | ![WebUI Shifter](screenshots/03-shifter.png) |
 | Mobil Pedal İstemcisi | ![Pedal İstemcisi](screenshots/02-pedal-client.png) |
 
 ## Teknoloji Yığını

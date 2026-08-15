@@ -26,7 +26,9 @@ By mounting the phones to the floor or a driving rig and tilting them, you contr
 
 | Section | Preview |
 |---------|---------|
-| WebUI Control Panel | ![WebUI Dashboard](screenshots/01-dashboard.png) |
+| WebUI Pedal Status | ![WebUI Dashboard](screenshots/01-dashboard.png) |
+| WebUI Steering Status | ![WebUI Wheel](screenshots/04-wheel.png) |
+| WebUI Gear (Shifter) Settings | ![WebUI Shifter](screenshots/03-shifter.png) |
 | Mobile Pedal Client | ![Pedal Client](screenshots/02-pedal-client.png) |
 
 ## Technology Stack
