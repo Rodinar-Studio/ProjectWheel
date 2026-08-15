@@ -1,3 +1,8 @@
+<p align="center">
+  <a href="README.md"><img src="https://img.shields.io/badge/T%C3%BCrk%C3%A7e-e11d48?style=for-the-badge" alt="Türkçe" height="28"></a>
+  <a href="README.en.md"><img src="https://img.shields.io/badge/English-3b82f6?style=for-the-badge" alt="English" height="28"></a>
+</p>
+
 # ProjectWheel — Gyro Pedal & Steering Wheel Gamepad
 
 İki Android telefonun jiroskop (ivmeölçer) verilerini kullanarak, bilgisayarda **sanal Xbox 360 gamepad** (gaz/fren pedalı + direksiyon) oluşturan entegre bir sürücü sistemidir.
