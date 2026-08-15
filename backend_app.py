@@ -57,7 +57,11 @@ DEFAULT_SETTINGS = {
     "gas": {"deadzone": 5, "sensitivity": 1.0, "activation_point": 5, "direction": "both"},
     "brake": {"deadzone": 5, "sensitivity": 1.0, "activation_point": 5, "direction": "both"},
     "wheel_deadzone": 0.0,
-    "bluetooth_port": "None"
+    "bluetooth_port": "None",
+    "wheel_device_id": 0,
+    "shifter_device_id": 1,
+    "shifter_mode": "none",
+    "wheel_invert": False
 }
 
 settings = DEFAULT_SETTINGS.copy()
@@ -97,6 +101,14 @@ calibration_offsets = {
 }
 
 wheel_state = {
+    "connected": False,
+    "name": "Yok",
+    "axes": {"X": 32768, "Y": 32768, "Z": 32768, "R": 32768, "U": 32768, "V": 32768},
+    "buttons": [False] * 32,
+    "pov": 65535
+}
+
+shifter_state = {
     "connected": False,
     "name": "Yok",
     "axes": {"X": 32768, "Y": 32768, "Z": 32768, "R": 32768, "U": 32768, "V": 32768},
@@ -173,11 +185,21 @@ def process_pedal_value(raw_angle, pedal_type):
         normalized = 1.0
     return normalized
 
+last_printed_gas = -1
+last_printed_brake = -1
+
 # ----------------- Virtual Controller Update -----------------
 def update_virtual_controller():
+    global last_printed_gas, last_printed_brake
     # 1. Update Pedals (Triggers)
     gas_val = int(pedal_state['gas']['value'] * 255)
     brake_val = int(pedal_state['brake']['value'] * 255)
+    
+    if gas_val != last_printed_gas or brake_val != last_printed_brake:
+        print(f"[Gamepad Triggers] Gas: {gas_val}, Brake: {brake_val}")
+        last_printed_gas = gas_val
+        last_printed_brake = brake_val
+        
     gamepad.right_trigger(value=gas_val)
     gamepad.left_trigger(value=brake_val)
     
@@ -195,11 +217,17 @@ def update_virtual_controller():
         if norm_x > 0:
             scaled_x = ((norm_x - deadzone_val) / (32768.0 - deadzone_val)) * 32767.0
         else:
-            scaled_x = ((norm_x + deadzone_val) / (32768.0 - deadzone_val)) * -32768.0
+            scaled_x = ((norm_x + deadzone_val) / (32768.0 - deadzone_val)) * 32768.0
         norm_x = int(scaled_x)
         
     if norm_x < -32768: norm_x = -32768
     if norm_x > 32767: norm_x = 32767
+    
+    if settings.get("wheel_invert", False):
+        norm_x = -norm_x
+        if norm_x < -32768: norm_x = -32768
+        if norm_x > 32767: norm_x = 32767
+        
     gamepad.left_joystick(x_value=norm_x, y_value=0)
     
     # 3. Update D-pad (POV Hat)
@@ -250,38 +278,184 @@ def update_virtual_controller():
                 gamepad.press_button(button=virt_btn)
             else:
                 gamepad.release_button(button=virt_btn)
+
+    # 5. Shifter Logic
+    shifter_mode = settings.get("shifter_mode", "none")
+    shifter_conn = shifter_state.get("connected", False)
+    
+    if shifter_conn and shifter_mode != "none":
+        if shifter_mode == "sequential_axis":
+            # Y-axis (forward/backward on joystick)
+            y_val = shifter_state["axes"]["Y"]
+            if y_val < 15000:     # Forward -> Shift Up
+                gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER)
+            elif y_val > 50000:   # Backward -> Shift Down
+                gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
+            else:
+                if not (wheel_state["connected"] and len(wheel_state["buttons"]) > 5 and wheel_state["buttons"][5]):
+                    gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER)
+                if not (wheel_state["connected"] and len(wheel_state["buttons"]) > 4 and wheel_state["buttons"][4]):
+                    gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
+                    
+        elif shifter_mode == "sequential_buttons":
+            # Physical buttons 0 (trigger) and 1 (thumb button) on Logitech
+            if shifter_state["buttons"][0]: # Trigger -> Shift Up (RB)
+                gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER)
+            else:
+                if not (wheel_state["connected"] and len(wheel_state["buttons"]) > 5 and wheel_state["buttons"][5]):
+                    gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER)
+                    
+            if shifter_state["buttons"][1]: # Thumb -> Shift Down (LB)
+                gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
+            else:
+                if not (wheel_state["connected"] and len(wheel_state["buttons"]) > 4 and wheel_state["buttons"][4]):
+                    gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
+                    
+        elif shifter_mode == "manual_h":
+            # Manual H-Shifter Mode (6 gears + 1 reverse) using analog zones
+            # X and Y are in range 0 - 65535, center is ~32768
+            x_val = shifter_state["axes"]["X"]
+            y_val = shifter_state["axes"]["Y"]
+            
+            # Map X zones: Sol (<22000), Orta (22000-43000), Sağ (>43000)
+            # Map Y zones: İleri (<22000), Geri (>43000)
+            
+            gear1 = (x_val < 22000 and y_val < 22000)
+            gear2 = (x_val < 22000 and y_val > 43000)
+            gear3 = (x_val >= 22000 and x_val <= 43000 and y_val < 22000)
+            gear4 = (x_val >= 22000 and x_val <= 43000 and y_val > 43000)
+            gear5 = (x_val > 43000 and y_val < 22000)
+            gear6 = (x_val > 43000 and y_val > 43000)
+            gearR = shifter_state["buttons"][0] # Trigger is Reverse
+            
+            # Map gears to buttons: A(1), B(2), X(3), Y(4), LB(5), RB(6), BACK(R)
+            gears = {
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_A: gear1,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_B: gear2,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_X: gear3,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_Y: gear4,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER: gear5,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER: gear6,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK: gearR
+            }
+            
+            for btn, active in gears.items():
+                if active:
+                    gamepad.press_button(button=btn)
+                else:
+                    # Only release if steering wheel is not pressing it
+                    wheel_pressed = False
+                    for w_idx, w_btn in mappings.items():
+                        if w_btn == btn and w_idx < len(wheel_state["buttons"]) and wheel_state["buttons"][w_idx]:
+                            wheel_pressed = True
+                            break
+                    if not wheel_pressed:
+                        gamepad.release_button(button=btn)
+                        
+        elif shifter_mode == "automatic_prnd":
+            # Automatic PRND mode using Y axis and Trigger button
+            # Forward -> D (Drive - A button)
+            # Backward -> R (Reverse - B button)
+            # Center -> N (Neutral - X button)
+            # Trigger -> P (Park - Y button)
+            y_val = shifter_state["axes"]["Y"]
+            trigger = shifter_state["buttons"][0]
+            
+            drive = (y_val < 15000 and not trigger)
+            reverse = (y_val > 50000 and not trigger)
+            neutral = (y_val >= 15000 and y_val <= 50000 and not trigger)
+            park = trigger
+            
+            modes = {
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_A: drive,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_B: reverse,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_X: neutral,
+                vg.XUSB_BUTTON.XUSB_GAMEPAD_Y: park
+            }
+            
+            for btn, active in modes.items():
+                if active:
+                    gamepad.press_button(button=btn)
+                else:
+                    wheel_pressed = False
+                    for w_idx, w_btn in mappings.items():
+                        if w_btn == btn and w_idx < len(wheel_state["buttons"]) and wheel_state["buttons"][w_idx]:
+                            wheel_pressed = True
+                            break
+                    if not wheel_pressed:
+                        gamepad.release_button(button=btn)
                 
     gamepad.update()
 
-# ----------------- Background Thread: Physical Wheel Reader -----------------
+# ----------------- Background Thread: Physical Wheel & Shifter Reader -----------------
 def wheel_reader_loop():
-    info = JOYINFOEX()
-    info.dwSize = ctypes.sizeof(info)
-    info.dwFlags = JOY_RETURNALL
+    info_wheel = JOYINFOEX()
+    info_wheel.dwSize = ctypes.sizeof(info_wheel)
+    info_wheel.dwFlags = JOY_RETURNALL
+
+    info_shifter = JOYINFOEX()
+    info_shifter.dwSize = ctypes.sizeof(info_shifter)
+    info_shifter.dwFlags = JOY_RETURNALL
     
     while True:
-        res = winmm.joyGetPosEx(0, ctypes.byref(info))
-        if res == 0:
+        wheel_id = settings.get("wheel_device_id", 0)
+        shifter_id = settings.get("shifter_device_id", 1)
+        
+        # 1. Read Physical Wheel
+        res_wheel = winmm.joyGetPosEx(wheel_id, ctypes.byref(info_wheel))
+        if res_wheel == 0:
             wheel_state["connected"] = True
-            wheel_state["name"] = "Fiziksel Direksiyon"
+            wheel_state["name"] = f"Fiziksel Direksiyon (ID: {wheel_id})"
             
-            wheel_state["axes"]["X"] = info.dwXpos
-            wheel_state["axes"]["Y"] = info.dwYpos
-            wheel_state["axes"]["Z"] = info.dwZpos
-            wheel_state["axes"]["R"] = info.dwRpos
-            wheel_state["axes"]["U"] = info.dwUpos
-            wheel_state["axes"]["V"] = info.dwVpos
+            wheel_state["axes"]["X"] = info_wheel.dwXpos
+            wheel_state["axes"]["Y"] = info_wheel.dwYpos
+            wheel_state["axes"]["Z"] = info_wheel.dwZpos
+            wheel_state["axes"]["R"] = info_wheel.dwRpos
+            wheel_state["axes"]["U"] = info_wheel.dwUpos
+            wheel_state["axes"]["V"] = info_wheel.dwVpos
             
-            wheel_state["pov"] = info.dwPOV
+            wheel_state["pov"] = info_wheel.dwPOV
             
             for i in range(32):
-                wheel_state["buttons"][i] = bool(info.dwButtons & (1 << i))
+                wheel_state["buttons"][i] = bool(info_wheel.dwButtons & (1 << i))
         else:
             wheel_state["connected"] = False
             wheel_state["name"] = "Bağlı Değil"
             wheel_state["axes"] = {"X": 32768, "Y": 32768, "Z": 32768, "R": 32768, "U": 32768, "V": 32768}
             wheel_state["buttons"] = [False] * 32
             wheel_state["pov"] = 65535
+
+        # 2. Read Physical Shifter
+        shifter_mode = settings.get("shifter_mode", "none")
+        if shifter_mode != "none":
+            res_shifter = winmm.joyGetPosEx(shifter_id, ctypes.byref(info_shifter))
+            if res_shifter == 0:
+                shifter_state["connected"] = True
+                shifter_state["name"] = f"Vites Joystick (ID: {shifter_id})"
+                
+                shifter_state["axes"]["X"] = info_shifter.dwXpos
+                shifter_state["axes"]["Y"] = info_shifter.dwYpos
+                shifter_state["axes"]["Z"] = info_shifter.dwZpos
+                shifter_state["axes"]["R"] = info_shifter.dwRpos
+                shifter_state["axes"]["U"] = info_shifter.dwUpos
+                shifter_state["axes"]["V"] = info_shifter.dwVpos
+                
+                shifter_state["pov"] = info_shifter.dwPOV
+                
+                for i in range(32):
+                    shifter_state["buttons"][i] = bool(info_shifter.dwButtons & (1 << i))
+            else:
+                shifter_state["connected"] = False
+                shifter_state["name"] = "Bağlı Değil"
+                shifter_state["axes"] = {"X": 32768, "Y": 32768, "Z": 32768, "R": 32768, "U": 32768, "V": 32768}
+                shifter_state["buttons"] = [False] * 32
+                shifter_state["pov"] = 65535
+        else:
+            shifter_state["connected"] = False
+            shifter_state["name"] = "Devre Dışı"
+            shifter_state["axes"] = {"X": 32768, "Y": 32768, "Z": 32768, "R": 32768, "U": 32768, "V": 32768}
+            shifter_state["buttons"] = [False] * 32
+            shifter_state["pov"] = 65535
             
         update_virtual_controller()
         time.sleep(0.005)
@@ -299,6 +473,7 @@ async def broadcast_state():
             data = json.dumps({
                 "type": "state_update",
                 "wheel": wheel_state,
+                "shifter": shifter_state,
                 "pedals": {
                     "gas": {
                         "value": pedal_state["gas"]["value"],
@@ -317,7 +492,8 @@ async def broadcast_state():
                 try:
                     await ws.send_text(data)
                 except Exception:
-                    webui_sockets.remove(ws)
+                    if ws in webui_sockets:
+                        webui_sockets.remove(ws)
         await asyncio.sleep(0.033)
 
 def bluetooth_serial_listener():
@@ -406,6 +582,10 @@ class SettingsPayload(BaseModel):
     brake: PedalSetting
     wheel_deadzone: float = 0.0
     bluetooth_port: str = "None"
+    wheel_device_id: int = 0
+    shifter_device_id: int = 1
+    shifter_mode: str = "none"
+    wheel_invert: bool = False
 
 @app.post("/api/settings")
 async def update_settings(payload: SettingsPayload):
@@ -414,6 +594,10 @@ async def update_settings(payload: SettingsPayload):
     settings["brake"] = payload.brake.dict()
     settings["wheel_deadzone"] = payload.wheel_deadzone
     settings["bluetooth_port"] = payload.bluetooth_port
+    settings["wheel_device_id"] = payload.wheel_device_id
+    settings["shifter_device_id"] = payload.shifter_device_id
+    settings["shifter_mode"] = payload.shifter_mode
+    settings["wheel_invert"] = payload.wheel_invert
     save_settings()
     return {"status": "success", "settings": settings}
 
@@ -499,6 +683,10 @@ async def ws_webui(websocket: WebSocket):
                 settings["brake"] = msg["settings"]["brake"]
                 settings["wheel_deadzone"] = msg["settings"].get("wheel_deadzone", 0.0)
                 settings["bluetooth_port"] = msg["settings"].get("bluetooth_port", "None")
+                settings["wheel_device_id"] = msg["settings"].get("wheel_device_id", 0)
+                settings["shifter_device_id"] = msg["settings"].get("shifter_device_id", 1)
+                settings["shifter_mode"] = msg["settings"].get("shifter_mode", "none")
+                settings["wheel_invert"] = msg["settings"].get("wheel_invert", False)
                 save_settings()
             elif msg.get("type") == "calibrate_pedal":
                 p_type = msg.get("pedal_type")

@@ -247,7 +247,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                       decoration: const InputDecoration(
                         labelText: 'PC Yerel IP Adresi',
                         border: OutlineInputBorder(),
-                        hintText: 'Örn: 192.168.1.100',
+                        hintText: 'Örn: 192.168.3.100',
                       ),
                       keyboardType: TextInputType.text,
                     ),

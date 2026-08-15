@@ -252,6 +252,10 @@
                             </div>
                             <input type="range" id="wheel-dead" min="0" max="25" step="1" value="0" class="w-full accent-amber-500" oninput="sendSettings()">
                         </div>
+                        <div class="flex items-center justify-between text-xs pt-1 border-t border-gray-800">
+                            <label for="wheel-invert" class="text-gray-300">Direksiyon Yönünü Ters Çevir</label>
+                            <input type="checkbox" id="wheel-invert" class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-amber-500 focus:ring-amber-500 accent-amber-500" onchange="sendSettings()">
+                        </div>
                     </div>
 
                     <!-- Axes list -->
@@ -329,6 +333,56 @@
                     </div>
 
                 </div>
+
+                <!-- Right Side: Shifter status -->
+                <div class="dark-card p-6 rounded-xl shadow-xl space-y-6">
+                    <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-gamepad gold-text"></i> Vites (Shifter) Ayarları
+                        </h2>
+                        <span id="shifter-conn-badge" class="px-2.5 py-0.5 rounded text-xs font-bold bg-red-950 text-red-400 border border-red-800">Bağlı Değil</span>
+                    </div>
+
+                    <!-- Mode selection -->
+                    <div class="space-y-3 bg-black bg-opacity-25 p-4 rounded-lg">
+                        <label for="shifter-mode" class="text-xs font-semibold text-gray-400 uppercase tracking-wider block">Vites Çalışma Tipi</label>
+                        <select id="shifter-mode" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500" onchange="sendSettings()">
+                            <option value="none">Devre Dışı (Kullanma)</option>
+                            <option value="sequential_axis">Sıralı Vites (Kol İleri/Geri)</option>
+                            <option value="sequential_buttons">Sıralı Vites (Tetik & Yan Tuşlar)</option>
+                            <option value="manual_h">Manuel H-Vites (Bölgelere Göre 1-6 + Geri)</option>
+                            <option value="automatic_prnd">Otomatik Vites (Kol İleri: D / Geri: R / Tetik: P)</option>
+                        </select>
+                    </div>
+
+                    <!-- Device Configurations -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2 bg-black bg-opacity-20 p-3 rounded-lg">
+                            <label for="wheel-device-id" class="text-xs text-gray-400 block">Direksiyon USB ID</label>
+                            <input type="number" id="wheel-device-id" min="0" max="16" value="0" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500" onchange="sendSettings()">
+                        </div>
+                        <div class="space-y-2 bg-black bg-opacity-20 p-3 rounded-lg">
+                            <label for="shifter-device-id" class="text-xs text-gray-400 block">Vites USB ID</label>
+                            <input type="number" id="shifter-device-id" min="0" max="16" value="1" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500" onchange="sendSettings()">
+                        </div>
+                    </div>
+
+                    <!-- Shifter state details (axes & buttons) -->
+                    <div class="space-y-3 bg-black bg-opacity-20 p-4 rounded-lg">
+                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Vites Verileri (<span id="shifter-name-text" class="text-white">Bağlı Değil</span>)</div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="flex justify-between bg-black bg-opacity-40 p-2 rounded">
+                                <span class="text-gray-400">Kol Y Ekseni:</span>
+                                <span id="shifter-y-val" class="font-mono text-white">32768</span>
+                            </div>
+                            <div class="flex justify-between bg-black bg-opacity-40 p-2 rounded">
+                                <span class="text-gray-400">Tetik Tuşu:</span>
+                                <span id="shifter-t-val" class="font-mono text-white">Bırakıldı</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
             
         </div>
@@ -389,6 +443,10 @@
 
             const wheelDead = parseFloat(document.getElementById('wheel-dead').value);
             const btPort = document.getElementById('bt-port').value.trim();
+            const wheelDevId = parseInt(document.getElementById('wheel-device-id').value) || 0;
+            const shifterDevId = parseInt(document.getElementById('shifter-device-id').value) || 1;
+            const shifterMode = document.getElementById('shifter-mode').value;
+            const wheelInvert = document.getElementById('wheel-invert').checked;
 
             document.getElementById('gas-act-val').innerText = `${gasAct}°`;
             document.getElementById('gas-dead-val').innerText = `${gasDead}°`;
@@ -417,7 +475,11 @@
                             direction: brakeDir
                         },
                         wheel_deadzone: wheelDead,
-                        bluetooth_port: btPort
+                        bluetooth_port: btPort,
+                        wheel_device_id: wheelDevId,
+                        shifter_device_id: shifterDevId,
+                        shifter_mode: shifterMode,
+                        wheel_invert: wheelInvert
                     }
                 }));
             }
@@ -452,6 +514,10 @@
                 document.getElementById('wheel-dead-val').innerText = `${wheelDead}%`;
                 
                 document.getElementById('bt-port').value = data.settings.bluetooth_port || 'None';
+                document.getElementById('wheel-device-id').value = data.settings.wheel_device_id !== undefined ? data.settings.wheel_device_id : 0;
+                document.getElementById('shifter-device-id').value = data.settings.shifter_device_id !== undefined ? data.settings.shifter_device_id : 1;
+                document.getElementById('shifter-mode').value = data.settings.shifter_mode || 'none';
+                document.getElementById('wheel-invert').checked = data.settings.wheel_invert || false;
                 
                 initialSettingsApplied = true;
             }
@@ -554,6 +620,26 @@
                 paddleR.className = "px-3 py-2 rounded bg-amber-500 text-black font-bold border border-amber-400 text-xs scale-105";
             } else {
                 paddleR.className = "px-3 py-2 rounded bg-gray-800 text-gray-600 font-bold border border-gray-700 text-xs";
+            }
+
+            // Update Shifter info
+            const shifter = data.shifter;
+            const shifterBadge = document.getElementById('shifter-conn-badge');
+            if (shifter) {
+                if (shifter.connected) {
+                    shifterBadge.className = "px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800";
+                    shifterBadge.innerText = "BAĞLI";
+                } else if (data.settings && data.settings.shifter_mode === 'none') {
+                    shifterBadge.className = "px-2.5 py-0.5 rounded text-xs font-bold bg-gray-800 text-gray-500 border border-gray-700";
+                    shifterBadge.innerText = "Devre Dışı";
+                } else {
+                    shifterBadge.className = "px-2.5 py-0.5 rounded text-xs font-bold bg-red-950 text-red-400 border border-red-800";
+                    shifterBadge.innerText = "Bağlı Değil";
+                }
+                
+                document.getElementById('shifter-name-text').innerText = shifter.name || 'Bağlı Değil';
+                document.getElementById('shifter-y-val').innerText = shifter.axes ? shifter.axes.Y : 32768;
+                document.getElementById('shifter-t-val').innerText = (shifter.buttons && shifter.buttons[0]) ? "BASILDI" : "Bırakıldı";
             }
         }
 
