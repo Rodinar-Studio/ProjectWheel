@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Logs & build outputs
+build.log
+build_err.log
+*.log
+
+# Compiled APK / binaries (kaynak koddan ayrı tutulur)
+*.apk
+*.exe
+
+# IDE / editor
+.vscode/
+.idea/
+*.iml
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins-dependencies
+.packages
+.build/
+flutter_*.png
+linked_*.ds
+unlinked.ds
+unlinked_spec.ds
+
+# Android / Gradle
+android/.gradle/
+android/local.properties
+android/app/build/
+android/captures/
+android/key.properties
+**/*.keystore
+**/*.jks
+*.keystore
+*.jks
+
+# Windows
+Thumbs.db
+Desktop.ini

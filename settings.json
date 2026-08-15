@@ -1,0 +1,12 @@
+{
+    "gas": {
+        "deadzone": 5,
+        "sensitivity": 1.0,
+        "activation_point": 5
+    },
+    "brake": {
+        "deadzone": 5,
+        "sensitivity": 1.0,
+        "activation_point": 5
+    }
+}

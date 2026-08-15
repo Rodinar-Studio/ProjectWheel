@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanal Direksiyon & Pedal Kontrol Paneli</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0b0c10; color: #c5c6c7; }
+        .gold-border { border-color: #d4af37; }
+        .gold-text { color: #d4af37; }
+        .gold-bg { background-color: #d4af37; }
+        .dark-card { background-color: #1f2833; border: 1px solid #45f3ff22; }
+    </style>
+</head>
+<body class="font-sans min-h-screen">
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 pb-4 border-b border-gray-800 gap-4">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-gamepad text-4xl gold-text animate-pulse"></i>
+                <div>
+                    <h1 class="text-3xl font-extrabold tracking-wide text-white">ProjectWheel <span class="gold-text">WebUI</span></h1>
+                    <p class="text-sm text-gray-400">Jiroskop Pedal ve Direksiyon Birleştirici Sürücü</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="server-status" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-950 text-red-400 border border-red-800 flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full bg-red-500 animate-ping"></span> Bağlı Değil
+                </span>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Side: Pedals (Gyro connection) -->
+            <div class="lg:col-span-2 space-y-8">
+                <div class="dark-card p-6 rounded-xl shadow-xl space-y-6">
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2 border-b border-gray-800 pb-3">
+                        <i class="fa-solid fa-gauge-high gold-text"></i> Telefon Pedalları (Jiroskop)
+                    </h2>
+
+                    <!-- Gas Pedal (Gaz) -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-emerald-400 flex items-center gap-2">
+                                <i class="fa-solid fa-circle-dot"></i> GAZ PEDALI (Gas)
+                            </span>
+                            <span id="gas-conn-status" class="text-xs px-2.5 py-1 rounded bg-gray-800 text-gray-400">Bağlı Değil</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Left: Progress & raw data -->
+                            <div class="bg-black bg-opacity-40 p-4 rounded-lg flex flex-col justify-center space-y-3">
+                                <div class="flex justify-between text-sm">
+                                    <span>Pedal Değeri</span>
+                                    <span id="gas-val-text" class="font-bold text-emerald-400 text-lg">0%</span>
+                                </div>
+                                <div class="w-full bg-gray-800 rounded-full h-5 overflow-hidden">
+                                    <div id="gas-val-bar" class="bg-emerald-500 h-full w-0 transition-all duration-75"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-400">
+                                    <span>Raw Eğim Açı: <span id="gas-raw-text" class="text-white font-mono">0.0°</span></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Right: Calibration settings -->
+                            <div class="space-y-3 bg-black bg-opacity-25 p-4 rounded-lg">
+                                <div class="flex justify-between items-center">
+                                    <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ayar & Kalibrasyon</div>
+                                    <button onclick="calibratePedal('gas')" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[10px] px-2 py-0.5 rounded transition duration-150">SIFIR NOKTASI AYARLA</button>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <label for="gas-act">Eğim Başlama Açısı (Threshold)</label>
+                                        <span id="gas-act-val" class="font-mono text-white">5°</span>
+                                    </div>
+                                    <input type="range" id="gas-act" min="0" max="30" value="5" class="w-full accent-amber-500" oninput="sendSettings()">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <label for="gas-dead">Ölü Bölge (Deadzone)</label>
+                                        <span id="gas-dead-val" class="font-mono text-white">5°</span>
+                                    </div>
+                                    <input type="range" id="gas-dead" min="0" max="30" value="5" class="w-full accent-amber-500" oninput="sendSettings()">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <label for="gas-sens">Hassasiyet (Sensitivity)</label>
+                                        <span id="gas-sens-val" class="font-mono text-white">1.0</span>
+                                    </div>
+                                    <input type="range" id="gas-sens" min="0.5" max="3.0" step="0.1" value="1.0" class="w-full accent-amber-500" oninput="sendSettings()">
+                                </div>
+                                <div>
+                                    <label for="gas-dir" class="text-xs text-gray-400 block mb-1">Eğim Yönü (Pedal Hareketi)</label>
+                                    <select id="gas-dir" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500" onchange="sendSettings()">
+                                        <option value="both">Her İki Yön (Mutlak Değer)</option>
+                                        <option value="positive">Pozitif (+) Eğim (Öne Bükme)</option>
+                                        <option value="negative">Negatif (-) Eğim (Geriye Bükme)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-800 my-6"></div>
+
+                    <!-- Brake Pedal (Fren) -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-bold text-rose-400 flex items-center gap-2">
+                                <i class="fa-solid fa-circle-dot"></i> FREN PEDALI (Brake)
+                            </span>
+                            <span id="brake-conn-status" class="text-xs px-2.5 py-1 rounded bg-gray-800 text-gray-400">Bağlı Değil</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Left: Progress & raw data -->
+                            <div class="bg-black bg-opacity-40 p-4 rounded-lg flex flex-col justify-center space-y-3">
+                                <div class="flex justify-between text-sm">
+                                    <span>Pedal Değeri</span>
+                                    <span id="brake-val-text" class="font-bold text-rose-400 text-lg">0%</span>
+                                </div>
+                                <div class="w-full bg-gray-800 rounded-full h-5 overflow-hidden">
+                                    <div id="brake-val-bar" class="bg-rose-500 h-full w-0 transition-all duration-75"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-400">
+                                    <span>Raw Eğim Açı: <span id="brake-raw-text" class="text-white font-mono">0.0°</span></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Right: Calibration settings -->
+                            <div class="space-y-3 bg-black bg-opacity-25 p-4 rounded-lg">
+                                <div class="flex justify-between items-center">
+                                    <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ayar & Kalibrasyon</div>
+                                    <button onclick="calibratePedal('brake')" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[10px] px-2 py-0.5 rounded transition duration-150">SIFIR NOKTASI AYARLA</button>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <label for="brake-act">Eğim Başlama Açısı (Threshold)</label>
+                                        <span id="brake-act-val" class="font-mono text-white">5°</span>
+                                    </div>
+                                    <input type="range" id="brake-act" min="0" max="30" value="5" class="w-full accent-amber-500" oninput="sendSettings()">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <label for="brake-dead">Ölü Bölge (Deadzone)</label>
+                                        <span id="brake-dead-val" class="font-mono text-white">5°</span>
+                                    </div>
+                                    <input type="range" id="brake-dead" min="0" max="30" value="5" class="w-full accent-amber-500" oninput="sendSettings()">
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs mb-1">
+                                        <label for="brake-sens">Hassasiyet (Sensitivity)</label>
+                                        <span id="brake-sens-val" class="font-mono text-white">1.0</span>
+                                    </div>
+                                    <input type="range" id="brake-sens" min="0.5" max="3.0" step="0.1" value="1.0" class="w-full accent-amber-500" oninput="sendSettings()">
+                                </div>
+                                <div>
+                                    <label for="brake-dir" class="text-xs text-gray-400 block mb-1">Eğim Yönü (Pedal Hareketi)</label>
+                                    <select id="brake-dir" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500" onchange="sendSettings()">
+                                        <option value="both">Her İki Yön (Mutlak Değer)</option>
+                                        <option value="positive">Pozitif (+) Eğim (Öne Bükme)</option>
+                                        <option value="negative">Negatif (-) Eğim (Geriye Bükme)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connection Guide (WiFi / USB) -->
+                <div class="dark-card p-6 rounded-xl shadow-xl">
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2 border-b border-gray-800 pb-3 mb-4">
+                        <i class="fa-solid fa-link gold-text"></i> Telefonları Bağlama Kılavuzu
+                    </h2>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 text-sm">
+                        <div class="bg-black bg-opacity-20 p-4 rounded-lg space-y-3 border border-gray-800 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <span class="font-bold text-sky-400 block"><i class="fa-solid fa-wifi"></i> 1. Yöntem: WiFi İle Bağlantı</span>
+                                <p class="text-gray-400 text-xs">Telefonunuz ve bilgisayarınız aynı WiFi ağına bağlı olmalıdır.</p>
+                                <div class="p-2 bg-black bg-opacity-50 font-mono text-xs rounded text-amber-400 select-all">
+                                    <span id="wifi-link-ip">http://192.168.1.100:8000/pedal_client</span>
+                                </div>
+                            </div>
+                            <div class="pt-2 border-t border-gray-800 space-y-2">
+                                <span class="text-xs text-gray-300 font-semibold block">Mobil Uygulamayı İndir (APK)</span>
+                                <a href="/download/gyro-pedal.apk" class="w-full bg-amber-600 hover:bg-amber-500 text-black font-bold py-1.5 px-3 rounded text-xs transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-download"></i> Android APK İndir
+                                </a>
+                            </div>
+                        </div>
+                        <div class="bg-black bg-opacity-20 p-4 rounded-lg space-y-2 border border-gray-800 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <span class="font-bold text-emerald-400 block"><i class="fa-solid fa-usb"></i> 2. Yöntem: USB İle Bağlantı (Önerilen)</span>
+                                <p class="text-gray-400 text-xs">Telefonunuzu USB ile bağlayıp USB Hata Ayıklamayı açın. Port yönlendirmeyi başlatarak USB üzerinden gecikmesiz bağlanın.</p>
+                            </div>
+                            <div class="space-y-2">
+                                <button onclick="runAdbReverse()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-1.5 px-3 rounded text-xs transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-arrows-spin"></i> USB Port Yönlendirmesini Başlat
+                                </button>
+                                <div id="adb-output" class="text-[10px] bg-black bg-opacity-50 p-2 rounded text-gray-400 font-mono overflow-y-auto max-h-[80px] hidden"></div>
+                            </div>
+                        </div>
+                        <div class="bg-black bg-opacity-20 p-4 rounded-lg space-y-2 border border-gray-800 flex flex-col justify-between">
+                            <div class="space-y-2">
+                                <span class="font-bold text-amber-500 block"><i class="fa-solid fa-bluetooth"></i> 3. Yöntem: Bluetooth Serial</span>
+                                <p class="text-gray-400 text-xs">Telefonunuzu PC ile eşleştirin. Windows Bluetooth ayarlarından bir **"Gelen COM Portu"** ekleyip aşağıya girin.</p>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs mb-1">
+                                    <label for="bt-port">Bluetooth COM Portu</label>
+                                    <span class="font-mono text-white text-[10px]">Örn: COM3</span>
+                                </div>
+                                <input type="text" id="bt-port" placeholder="None veya COM3" value="None" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-amber-500" onchange="sendSettings()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Steering Wheel status -->
+            <div class="space-y-8">
+                <div class="dark-card p-6 rounded-xl shadow-xl space-y-6">
+                    <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-circle-notch gold-text"></i> Direksiyon Durumu
+                        </h2>
+                        <span id="wheel-conn-badge" class="px-2.5 py-0.5 rounded text-xs font-bold bg-red-950 text-red-400 border border-red-800">Bağlı Değil</span>
+                    </div>
+
+                    <!-- Steering Visual Gauge -->
+                    <div class="flex flex-col items-center py-4 bg-black bg-opacity-35 rounded-lg border border-gray-800">
+                        <div class="text-xs text-gray-400 mb-2">DİREKSİYON AÇISI</div>
+                        <div class="relative w-36 h-36 flex items-center justify-center">
+                            <!-- Steering wheel representation -->
+                            <div id="wheel-disc" class="w-32 h-32 rounded-full border-8 border-gray-700 flex items-center justify-center transition-transform duration-75">
+                                <div class="w-1.5 h-20 bg-amber-500 absolute top-6"></div>
+                                <div class="w-24 h-1.5 bg-gray-700"></div>
+                            </div>
+                        </div>
+                        <div id="wheel-angle-text" class="text-lg font-bold font-mono mt-3 text-white">0° (Merkez)</div>
+                    </div>
+
+                    <!-- Steering Settings -->
+                    <div class="space-y-3 bg-black bg-opacity-25 p-4 rounded-lg">
+                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Direksiyon Ayarları</div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <label for="wheel-dead">Direksiyon Ölü Bölgesi (Deadzone)</label>
+                                <span id="wheel-dead-val" class="font-mono text-white">0%</span>
+                            </div>
+                            <input type="range" id="wheel-dead" min="0" max="25" step="1" value="0" class="w-full accent-amber-500" oninput="sendSettings()">
+                        </div>
+                    </div>
+
+                    <!-- Axes list -->
+                    <div class="space-y-3 bg-black bg-opacity-20 p-4 rounded-lg">
+                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Eksenler (Axes)</div>
+                        <div class="space-y-2 text-xs">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span>Eksen X (Steering)</span>
+                                    <span id="axis-x-val" class="font-mono">32768</span>
+                                </div>
+                                <div class="w-full bg-gray-800 h-2 rounded overflow-hidden">
+                                    <div id="axis-x-bar" class="bg-amber-500 h-full w-1/2"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span>Eksen Y</span>
+                                    <span id="axis-y-val" class="font-mono">32768</span>
+                                </div>
+                                <div class="w-full bg-gray-800 h-2 rounded overflow-hidden">
+                                    <div id="axis-y-bar" class="bg-gray-600 h-full w-1/2"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span>Eksen Z</span>
+                                    <span id="axis-z-val" class="font-mono">32768</span>
+                                </div>
+                                <div class="w-full bg-gray-800 h-2 rounded overflow-hidden">
+                                    <div id="axis-z-bar" class="bg-gray-600 h-full w-1/2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Paddles & D-Pad (ok yönleri) -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-black bg-opacity-20 p-3 rounded-lg flex flex-col items-center">
+                            <span class="text-xs text-gray-400 mb-2">Ok Yönleri (D-Pad)</span>
+                            <div class="w-20 h-20 relative bg-gray-800 rounded-full flex items-center justify-center border border-gray-700">
+                                <div id="dpad-up" class="absolute top-1 text-xs text-gray-600"><i class="fa-solid fa-caret-up"></i></div>
+                                <div id="dpad-down" class="absolute bottom-1 text-xs text-gray-600"><i class="fa-solid fa-caret-down"></i></div>
+                                <div id="dpad-left" class="absolute left-1 text-xs text-gray-600"><i class="fa-solid fa-caret-left"></i></div>
+                                <div id="dpad-right" class="absolute right-1 text-xs text-gray-600"><i class="fa-solid fa-caret-right"></i></div>
+                                <div class="w-6 h-6 bg-gray-900 rounded-full"></div>
+                            </div>
+                        </div>
+                        <div class="bg-black bg-opacity-20 p-3 rounded-lg flex flex-col justify-center space-y-3">
+                            <span class="text-xs text-gray-400 text-center">Vites Kulakçıkları</span>
+                            <div class="flex justify-around">
+                                <div id="paddle-left" class="px-3 py-2 rounded bg-gray-800 text-gray-600 font-bold border border-gray-700 text-xs">SOL (L)</div>
+                                <div id="paddle-right" class="px-3 py-2 rounded bg-gray-800 text-gray-600 font-bold border border-gray-700 text-xs">SAĞ (R)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 12 Buttons representation -->
+                    <div class="bg-black bg-opacity-20 p-4 rounded-lg">
+                        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Tüm Tuşlar (12 Tuş)</div>
+                        <div class="grid grid-cols-4 gap-2">
+                            <div id="btn-0" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B0</div>
+                            <div id="btn-1" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B1</div>
+                            <div id="btn-2" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B2</div>
+                            <div id="btn-3" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B3</div>
+                            <div id="btn-4" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B4</div>
+                            <div id="btn-5" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B5</div>
+                            <div id="btn-6" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B6</div>
+                            <div id="btn-7" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B7</div>
+                            <div id="btn-8" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B8</div>
+                            <div id="btn-9" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B9</div>
+                            <div id="btn-10" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B10</div>
+                            <div id="btn-11" class="btn-indicator py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700">B11</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- Scripting -->
+    <script>
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/webui`;
+        let ws;
+
+        document.getElementById('wifi-link-ip').innerText = `http://${window.location.hostname}:8000/pedal_client`;
+
+        function connectWS() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                document.getElementById('server-status').className = "px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center gap-2";
+                document.getElementById('server-status').innerHTML = '<span class="h-2 w-2 rounded-full bg-emerald-500"></span> Sunucuya Bağlandı';
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'state_update') {
+                    updateUI(data);
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('server-status').className = "px-3 py-1.5 rounded-full text-xs font-semibold bg-red-950 text-red-400 border border-red-800 flex items-center gap-2";
+                document.getElementById('server-status').innerHTML = '<span class="h-2 w-2 rounded-full bg-red-500 animate-ping"></span> Bağlantı Kesildi';
+                setTimeout(connectWS, 1000);
+            };
+        }
+
+        connectWS();
+
+        function calibratePedal(pedalType) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "calibrate_pedal",
+                    pedal_type: pedalType
+                }));
+                console.log(`Sent calibration request for: ${pedalType}`);
+            }
+        }
+
+        function sendSettings() {
+            const gasAct = parseInt(document.getElementById('gas-act').value);
+            const gasDead = parseInt(document.getElementById('gas-dead').value);
+            const gasSens = parseFloat(document.getElementById('gas-sens').value);
+            const gasDir = document.getElementById('gas-dir').value;
+            
+            const brakeAct = parseInt(document.getElementById('brake-act').value);
+            const brakeDead = parseInt(document.getElementById('brake-dead').value);
+            const brakeSens = parseFloat(document.getElementById('brake-sens').value);
+            const brakeDir = document.getElementById('brake-dir').value;
+
+            const wheelDead = parseFloat(document.getElementById('wheel-dead').value);
+            const btPort = document.getElementById('bt-port').value.trim();
+
+            document.getElementById('gas-act-val').innerText = `${gasAct}°`;
+            document.getElementById('gas-dead-val').innerText = `${gasDead}°`;
+            document.getElementById('gas-sens-val').innerText = `${gasSens.toFixed(1)}`;
+            
+            document.getElementById('brake-act-val').innerText = `${brakeAct}°`;
+            document.getElementById('brake-dead-val').innerText = `${brakeDead}°`;
+            document.getElementById('brake-sens-val').innerText = `${brakeSens.toFixed(1)}`;
+
+            document.getElementById('wheel-dead-val').innerText = `${wheelDead}%`;
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "update_settings",
+                    settings: {
+                        gas: {
+                            activation_point: gasAct,
+                            deadzone: gasDead,
+                            sensitivity: gasSens,
+                            direction: gasDir
+                        },
+                        brake: {
+                            activation_point: brakeAct,
+                            deadzone: brakeDead,
+                            sensitivity: brakeSens,
+                            direction: brakeDir
+                        },
+                        wheel_deadzone: wheelDead,
+                        bluetooth_port: btPort
+                    }
+                }));
+            }
+        }
+
+        let initialSettingsApplied = false;
+
+        function updateUI(data) {
+            if (!initialSettingsApplied && data.settings) {
+                const gas = data.settings.gas;
+                const brake = data.settings.brake;
+                
+                document.getElementById('gas-act').value = gas.activation_point;
+                document.getElementById('gas-dead').value = gas.deadzone;
+                document.getElementById('gas-sens').value = gas.sensitivity;
+                document.getElementById('gas-dir').value = gas.direction || 'both';
+                
+                document.getElementById('brake-act').value = brake.activation_point;
+                document.getElementById('brake-dead').value = brake.deadzone;
+                document.getElementById('brake-sens').value = brake.sensitivity;
+                document.getElementById('brake-dir').value = brake.direction || 'both';
+                
+                document.getElementById('gas-act-val').innerText = `${gas.activation_point}°`;
+                document.getElementById('gas-dead-val').innerText = `${gas.deadzone}°`;
+                document.getElementById('gas-sens-val').innerText = `${gas.sensitivity.toFixed(1)}`;
+                document.getElementById('brake-act-val').innerText = `${brake.activation_point}°`;
+                document.getElementById('brake-dead-val').innerText = `${brake.deadzone}°`;
+                document.getElementById('brake-sens-val').innerText = `${brake.sensitivity.toFixed(1)}`;
+
+                const wheelDead = data.settings.wheel_deadzone || 0;
+                document.getElementById('wheel-dead').value = wheelDead;
+                document.getElementById('wheel-dead-val').innerText = `${wheelDead}%`;
+                
+                document.getElementById('bt-port').value = data.settings.bluetooth_port || 'None';
+                
+                initialSettingsApplied = true;
+            }
+
+            const gas = data.pedals.gas;
+            const brake = data.pedals.brake;
+
+            const gasPerc = Math.round(gas.value * 100);
+            document.getElementById('gas-val-text').innerText = `${gasPerc}%`;
+            document.getElementById('gas-val-bar').style.width = `${gasPerc}%`;
+            document.getElementById('gas-raw-text').innerText = `${gas.raw.toFixed(1)}°`;
+            const gasBadge = document.getElementById('gas-conn-status');
+            if (gas.connected) {
+                gasBadge.className = "text-xs px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-semibold";
+                gasBadge.innerText = "BAĞLI";
+            } else {
+                gasBadge.className = "text-xs px-2.5 py-1 rounded bg-gray-800 text-gray-400 border border-gray-700";
+                gasBadge.innerText = "Bağlı Değil";
+            }
+
+            const brakePerc = Math.round(brake.value * 100);
+            document.getElementById('brake-val-text').innerText = `${brakePerc}%`;
+            document.getElementById('brake-val-bar').style.width = `${brakePerc}%`;
+            document.getElementById('brake-raw-text').innerText = `${brake.raw.toFixed(1)}°`;
+            const brakeBadge = document.getElementById('brake-conn-status');
+            if (brake.connected) {
+                brakeBadge.className = "text-xs px-2.5 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-semibold";
+                brakeBadge.innerText = "BAĞLI";
+            } else {
+                brakeBadge.className = "text-xs px-2.5 py-1 rounded bg-gray-800 text-gray-400 border border-gray-700";
+                brakeBadge.innerText = "Bağlı Değil";
+            }
+
+            const wheel = data.wheel;
+            const wheelBadge = document.getElementById('wheel-conn-badge');
+            if (wheel.connected) {
+                wheelBadge.className = "px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-950 text-emerald-400 border border-emerald-800";
+                wheelBadge.innerText = "BAĞLI";
+            } else {
+                wheelBadge.className = "px-2.5 py-0.5 rounded text-xs font-bold bg-red-950 text-red-400 border border-red-800";
+                wheelBadge.innerText = "Bağlı Değil";
+            }
+
+            const rawX = wheel.axes.X;
+            const normalizedX = (rawX - 32768) / 32768;
+            const angle = normalizedX * 90;
+            document.getElementById('wheel-disc').style.transform = `rotate(${angle}deg)`;
+            let centerText = `${Math.round(angle)}°`;
+            if (Math.abs(angle) < 2) centerText += " (Merkez)";
+            else if (angle < 0) centerText += " (Sol)";
+            else centerText += " (Sağ)";
+            document.getElementById('wheel-angle-text').innerText = centerText;
+
+            document.getElementById('axis-x-val').innerText = rawX;
+            document.getElementById('axis-x-bar').style.width = `${((rawX / 65535) * 100)}%`;
+            document.getElementById('axis-y-val').innerText = wheel.axes.Y;
+            document.getElementById('axis-y-bar').style.width = `${((wheel.axes.Y / 65535) * 100)}%`;
+            document.getElementById('axis-z-val').innerText = wheel.axes.Z;
+            document.getElementById('axis-z-bar').style.width = `${((wheel.axes.Z / 65535) * 100)}%`;
+
+            for (let i = 0; i < 12; i++) {
+                const btnEl = document.getElementById(`btn-${i}`);
+                if (btnEl) {
+                    if (wheel.buttons[i]) {
+                        btnEl.className = "py-1.5 rounded text-center font-mono text-[10px] font-bold bg-amber-500 text-black border border-amber-400";
+                    } else {
+                        btnEl.className = "py-1.5 rounded bg-gray-800 text-center font-mono text-[10px] text-gray-500 border border-gray-700";
+                    }
+                }
+            }
+
+            const pov = wheel.pov;
+            const dpadUp = document.getElementById('dpad-up');
+            const dpadDown = document.getElementById('dpad-down');
+            const dpadLeft = document.getElementById('dpad-left');
+            const dpadRight = document.getElementById('dpad-right');
+
+            dpadUp.className = "absolute top-1 text-xs text-gray-600";
+            dpadDown.className = "absolute bottom-1 text-xs text-gray-600";
+            dpadLeft.className = "absolute left-1 text-xs text-gray-600";
+            dpadRight.className = "absolute right-1 text-xs text-gray-600";
+
+            if (pov !== 65535) {
+                if (pov === 0 || pov === 31500 || pov === 4500) dpadUp.className = "absolute top-1 text-xs text-amber-500 scale-125";
+                if (pov === 18000 || pov === 13500 || pov === 22500) dpadDown.className = "absolute bottom-1 text-xs text-amber-500 scale-125";
+                if (pov === 27000 || pov === 22500 || pov === 31500) dpadLeft.className = "absolute left-1 text-xs text-amber-500 scale-125";
+                if (pov === 9000 || pov === 4500 || pov === 13500) dpadRight.className = "absolute right-1 text-xs text-amber-500 scale-125";
+            }
+
+            const paddleL = document.getElementById('paddle-left');
+            const paddleR = document.getElementById('paddle-right');
+            
+            if (wheel.buttons[4]) {
+                paddleL.className = "px-3 py-2 rounded bg-amber-500 text-black font-bold border border-amber-400 text-xs scale-105";
+            } else {
+                paddleL.className = "px-3 py-2 rounded bg-gray-800 text-gray-600 font-bold border border-gray-700 text-xs";
+            }
+
+            if (wheel.buttons[5]) {
+                paddleR.className = "px-3 py-2 rounded bg-amber-500 text-black font-bold border border-amber-400 text-xs scale-105";
+            } else {
+                paddleR.className = "px-3 py-2 rounded bg-gray-800 text-gray-600 font-bold border border-gray-700 text-xs";
+            }
+        }
+
+        async function runAdbReverse() {
+            const btn = document.querySelector('button[onclick="runAdbReverse()"]');
+            const logEl = document.getElementById('adb-output');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Yönlendiriliyor...';
+            logEl.classList.remove('hidden');
+            logEl.innerText = "Yönlendirme başlatılıyor...\n";
+
+            try {
+                const response = await fetch('/api/adb_reverse', {method: 'POST'});
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    logEl.innerText += `Başarılı!\nCihazlar:\n${data.devices}\n\nMesaj: ${data.message}`;
+                    logEl.className = "text-[10px] bg-emerald-950 border border-emerald-800 p-2 rounded text-emerald-400 font-mono overflow-y-auto max-h-[80px]";
+                } else {
+                    logEl.innerText += `Hata: ${data.message || 'Bilinmeyen hata'}`;
+                    logEl.className = "text-[10px] bg-red-950 border border-red-800 p-2 rounded text-red-400 font-mono overflow-y-auto max-h-[80px]";
+                }
+            } catch (e) {
+                logEl.innerText += `İstek Hatası: ${e.message}`;
+                logEl.className = "text-[10px] bg-red-950 border border-red-800 p-2 rounded text-red-400 font-mono overflow-y-auto max-h-[80px]";
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-arrows-spin"></i> USB Port Yönlendirmesini Başlat';
+            }
+        }
+    </script>
+</body>
+</html>

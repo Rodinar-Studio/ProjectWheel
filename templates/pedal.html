@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jiroskop Pedal İstemcisi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0b0c10; color: #c5c6c7; touch-action: none; }
+        .gold-border { border-color: #d4af37; }
+        .gold-text { color: #d4af37; }
+        .gold-bg { background-color: #d4af37; }
+        .dark-card { background-color: #1f2833; border: 1px solid #45f3ff22; }
+    </style>
+</head>
+<body class="font-sans flex flex-col items-center justify-center min-h-screen p-4 select-none">
+    
+    <!-- Status Connection Header -->
+    <div class="fixed top-4 left-4 right-4 flex justify-between items-center bg-black bg-opacity-40 p-3 rounded-lg border border-gray-800">
+        <span class="text-xs text-gray-400">Durum:</span>
+        <span id="conn-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800">Bağlı Değil</span>
+    </div>
+
+    <!-- Screen 1: Assign Pedal -->
+    <div id="setup-screen" class="w-full max-w-sm dark-card p-6 rounded-xl text-center space-y-6 shadow-2xl">
+        <div class="space-y-2">
+            <i class="fa-solid fa-mobile-screen-button text-5xl gold-text"></i>
+            <h1 class="text-2xl font-bold text-white">Pedal Ataması</h1>
+            <p class="text-xs text-gray-400">Bu telefonu hangi pedal olarak kullanmak istiyorsunuz?</p>
+        </div>
+        
+        <div class="space-y-4">
+            <button onclick="assignPedal('gas')" class="w-full bg-emerald-700 hover:bg-emerald-600 active:scale-95 text-white font-bold py-4 rounded-lg text-lg transition shadow-lg border border-emerald-600 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-gauge"></i> 🟢 GAZ PEDALI (Gas)
+            </button>
+            <button onclick="assignPedal('brake')" class="w-full bg-rose-700 hover:bg-rose-600 active:scale-95 text-white font-bold py-4 rounded-lg text-lg transition shadow-lg border border-rose-600 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-circle-stop"></i> 🔴 FREN PEDALI (Brake)
+            </button>
+        </div>
+        
+        <button id="req-perm-btn" onclick="requestDeviceOrientation()" class="w-full bg-blue-700 hover:bg-blue-600 text-white py-2.5 rounded-lg text-xs transition border border-blue-500 hidden">
+            <i class="fa-solid fa-lock-open mr-2"></i> Jiroskop İzni İste (iOS)
+        </button>
+    </div>
+
+    <!-- Screen 2: Active Transmission -->
+    <div id="active-screen" class="hidden w-full max-w-sm dark-card p-6 rounded-xl text-center space-y-6 shadow-2xl">
+        <div>
+            <h1 id="active-title" class="text-2xl font-bold text-white tracking-widest">GAZ PEDALI</h1>
+            <div id="pedal-icon" class="text-6xl my-4 text-emerald-400"><i class="fa-solid fa-gauge"></i></div>
+        </div>
+        
+        <div class="bg-black bg-opacity-40 p-4 rounded-lg">
+            <div class="text-xs text-gray-500 mb-1">CİHAZ EĞİM AÇISI</div>
+            <div class="text-5xl font-mono font-bold text-white" id="angle-display">0.0°</div>
+            <div class="text-[10px] text-gray-500 mt-2">Sıfır Noktası: <span id="base-angle-text">0.0°</span></div>
+        </div>
+
+        <div class="w-full bg-gray-800 h-8 rounded-full border border-gray-700 overflow-hidden relative shadow-inner">
+            <div id="visual-bar" class="h-full bg-emerald-500 transition-all duration-75" style="width: 0%"></div>
+        </div>
+        
+        <div class="space-y-3">
+            <button onclick="resetZero()" class="w-full bg-gray-700 hover:bg-gray-600 active:scale-95 text-white font-semibold py-3 rounded-lg text-sm transition border border-gray-600 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-compass-calibration"></i> Sıfır Noktasını Kalibre Et
+            </button>
+            <button onclick="showSetup()" class="w-full bg-transparent hover:bg-gray-800 text-gray-400 py-2 rounded text-xs transition">
+                Geri Dön ve Değiştir
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const phoneId = 'phone_' + Math.random().toString(36).substr(2, 9);
+        let currentPedal = null;
+        let baseAngle = null;
+        let ws;
+        let sendInterval;
+        let lastAngle = 0;
+
+        // WebSocket protocol mapping
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/pedal`;
+
+        function connectWS() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                const statusEl = document.getElementById('conn-status');
+                statusEl.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800";
+                statusEl.innerText = "Sunucuya Bağlandı";
+                
+                // Resend assignment if already set
+                if (currentPedal) {
+                    ws.send(JSON.stringify({action: "assign", pedal_type: currentPedal, phone_id: phoneId}));
+                }
+            };
+
+            ws.onclose = () => {
+                const statusEl = document.getElementById('conn-status');
+                statusEl.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800";
+                statusEl.innerText = "Bağlantı Kesildi";
+                setTimeout(connectWS, 1000); // Reconnect
+            };
+        }
+
+        connectWS();
+
+        // iOS Permission request
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            document.getElementById('req-perm-btn').classList.remove('hidden');
+        }
+
+        function requestDeviceOrientation() {
+            DeviceOrientationEvent.requestPermission()
+                .then(response => {
+                    if (response === 'granted') {
+                        document.getElementById('req-perm-btn').classList.add('hidden');
+                    }
+                })
+                .catch(console.error);
+        }
+
+        function assignPedal(type) {
+            currentPedal = type;
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({action: "assign", pedal_type: type, phone_id: phoneId}));
+            }
+
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('active-screen').classList.remove('hidden');
+            
+            const titleEl = document.getElementById('active-title');
+            const iconEl = document.getElementById('pedal-icon');
+            const barEl = document.getElementById('visual-bar');
+
+            if (type === 'gas') {
+                titleEl.innerText = '🟢 GAZ PEDALI';
+                titleEl.className = 'text-2xl font-bold text-emerald-400 tracking-widest';
+                iconEl.className = 'text-6xl my-4 text-emerald-400';
+                iconEl.innerHTML = '<i class="fa-solid fa-gauge"></i>';
+                barEl.className = 'h-full bg-emerald-500 transition-all duration-75';
+            } else {
+                titleEl.innerText = '🔴 FREN PEDALI';
+                titleEl.className = 'text-2xl font-bold text-rose-400 tracking-widest';
+                iconEl.className = 'text-6xl my-4 text-rose-400';
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-stop"></i>';
+                barEl.className = 'h-full bg-rose-500 transition-all duration-75';
+            }
+
+            startSensor();
+        }
+
+        function showSetup() {
+            stopSensor();
+            currentPedal = null;
+            document.getElementById('active-screen').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
+        }
+
+        function resetZero() {
+            baseAngle = null;
+        }
+
+        function startSensor() {
+            window.addEventListener('deviceorientation', handleOrientation);
+            
+            // Periodically send data via WS (50Hz = every 20ms)
+            sendInterval = setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN && currentPedal !== null && baseAngle !== null) {
+                    let relativeAngle = lastAngle - baseAngle;
+                    ws.send(JSON.stringify({
+                        phone_id: phoneId,
+                        pedal_type: currentPedal,
+                        angle: relativeAngle
+                    }));
+                }
+            }, 20);
+        }
+
+        function stopSensor() {
+            window.removeEventListener('deviceorientation', handleOrientation);
+            clearInterval(sendInterval);
+        }
+
+        function handleOrientation(event) {
+            // Use beta (pitch / tilt forward-backward)
+            let angle = event.beta;
+            
+            if (angle === null) return;
+
+            if (baseAngle === null) {
+                baseAngle = angle;
+                document.getElementById('base-angle-text').innerText = baseAngle.toFixed(1) + '°';
+            }
+
+            lastAngle = angle;
+            let relativeAngle = angle - baseAngle;
+            
+            document.getElementById('angle-display').innerText = relativeAngle.toFixed(1) + '°';
+            
+            // Visual feedback (0..45 degrees mapped to 0..100%)
+            let visualPerc = Math.min(100, Math.max(0, Math.abs(relativeAngle) * 2.22));
+            document.getElementById('visual-bar').style.width = visualPerc + '%';
+        }
+    </script>
+</body>
+</html>
